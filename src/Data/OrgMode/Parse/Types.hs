@@ -28,11 +28,10 @@ module Data.OrgMode.Parse.Types
 import           Data.HashMap.Strict  (HashMap)
 import           Data.Text            (Text)
 import           Data.Thyme.LocalTime (LocalTime (..))
-import           Data.Tree            (Forest(..),Tree(..))
 
 ----------------------------------------------------------------------------
 data OrgDocument = OrgDocument {
-  headings :: Forest OrgSection
+  headings :: [OrgSection]
   } deriving (Show, Eq)
 
 data OrgSection = OrgSection {

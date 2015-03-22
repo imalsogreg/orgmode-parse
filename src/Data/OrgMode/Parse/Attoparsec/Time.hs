@@ -14,6 +14,7 @@
 
 module Data.OrgMode.Parse.Attoparsec.Time
 ( parseTimestampLine
+, parseTimestamp
 , scheduleType
 )
 where
@@ -36,19 +37,21 @@ import           Data.OrgMode.Parse.Types
 -- | Parse an org-mode timestamp (eg "[2015-03-21 Sat 09:45]") with
 -- user-supplied opening and ending brackets
 parseTimestamp :: Open -> Close -> TP.Parser Text Timestamp
-parseTimestamp (Open s) (Close e) = activeState <$>
-  char s *>
-  (timeParser1 <|> timeParser2)
-  <* AB.many' (skipSpace *> parseRecur)
-  <* char e
+parseTimestamp (Open s) (Close e) = do
+  timeString <- (char s *>
+                 T.takeTill (== e)
+                 <* T.many' (skipSpace *> parseRecur)
+                 <* char e)
+  case AB.parseOnly (timeParser1 <|> timeParser2) (encodeUtf8 timeString) of
+    Left err -> fail err
+    Right t  -> return (activeState $ buildTime t)
   where
     activeState = if s == '<' && e == '>'
                   then Active else Inactive
     timeParser1 = timeParser defaultTimeLocale "%Y-%m-%d %a %H:%M"
     timeParser2 = timeParser defaultTimeLocale "%Y-%m-%d %a"
---      dropRecur   = unwords . filter (not . isPrefixOf "+") . words
-    parseRecur  = char "+" *> AB.many' (digit <|> oneOf "ymdwhm") -- TODO
-    oneOf xs    = AB.choice (map char xs)
+    parseRecur  = T.char '+' *> T.many' T.digit *> T.takeWhile (T.inClass "ymdwhm") -- TODO
+
 
 -- | Parse an org-mode timestamp line with user-supplied opening and
 -- ending brackets (for either active or inactive stamps).
