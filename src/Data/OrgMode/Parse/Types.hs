@@ -25,8 +25,11 @@ module Data.OrgMode.Parse.Types
 , toPriority
 ) where
 
-import           Data.HashMap.Strict  (HashMap)
-import           Data.Text            (Text)
+import qualified Data.Aeson as A
+import           Data.Aeson ((.=))
+import           Data.HashMap.Strict  (HashMap, toList, fromList)
+import           Data.Text            (Text, pack)
+import qualified Data.Vector as V
 import           Data.Thyme.LocalTime (LocalTime (..))
 
 ----------------------------------------------------------------------------
@@ -92,20 +95,20 @@ data ClockEntry = ClockOngoing LocalTime
 
 instance A.ToJSON OrgSection where
   toJSON (OrgSection secHead secProps secSched secClocks) =
-    A.Object ["heading"    .= A.toJSON secHead
-             ,"properties" .= A.toJSON segProps
-             ,"schedules"  .= A.toJSON secSched
-             ,"clocks"     .= A.toJSON segClocks
-             ]
+    A.Object (V.fromList ["heading"    .= A.toJSON secHead
+                         ,"properties" .= A.toJSON secProps
+                         ,"schedules"  .= A.toJSON secSched
+                         ,"clocks"     .= A.toJSON secClocks
+                         ])
 
 instance A.ToJSON Heading where
   toJSON (Heading hLevel hPr hTodoState hTitle hTags) =
-    A.Object ["level"     .= A.Number hLevel
-             ,"priority"  .= A.toJSON hPr
-             ,"todoState" .= A.toJSON hTodoState
-             ,"title"     .= A.Text hTitle
-             ,"tags"      .= A.toJSON hTags
-             ]
+    A.Object (V.fromList ["level"     .= A.Number hLevel
+                         ,"priority"  .= A.toJSON hPr
+                         ,"todoState" .= A.toJSON hTodoState
+                         ,"title"     .= A.String hTitle
+                         ,"tags"      .= A.toJSON hTags
+                         ])
 
 instance A.ToJSON Schedule where
   toJSON (Schedule sType sTs sRecur) =
@@ -115,15 +118,18 @@ instance A.ToJSON Schedule where
              ]
 
 instance A.ToJSON Timestamp where
-  toJSON (Active t)   = A.Object
+  toJSON (Active t)   = A.Object (fromList
+                                  ["timestamp"       .= show t
+                                  ,"timestampActive" .= True])
+  toJSON (Inactive t) = A.Object (fromList
                         ["timestamp"       .= show t
-                        ,"timestampActive" .= True]
-  toJSON (Inactive t) = A.Object
-                        ["timestamp"       .= show t
-                        ,"timestampActive" .= False]
+                        ,"timestampActive" .= False])
 
-instance A.ToJSON v => A.ToJSON PropertDrawer Text v where
-  toJSON (PropertyDrawer m) = A.toJSON m
+instance (Show k, A.ToJSON v) => A.ToJSON (PropertyDrawer k v) where
+  toJSON (PropertyDrawer m) = A.Object
+    (fromList $ map (\(k,v) -> pack (show k) .= A.toJSON v) (toList m))
+    -- TODO: This is a little ugly. Can either clean up, or
+    -- make PropertyDrawer monomorphic. ?
 
 instance A.ToJSON Priority where
   toJSON A = A.String "A"
@@ -133,6 +139,6 @@ instance A.ToJSON Priority where
 
 instance A.ToJSON ClockEntry where
   toJSON (ClockOngoing t) =
-      A.Array [A.toJSON t]
-    toJSON (ClockInterval (t1,t2)) =
+      A.Array (V.fromList [A.toJSON t])
+  toJSON (ClockInterval (t1,t2)) =
       A.Array (map A.toJSON [t1,t2])

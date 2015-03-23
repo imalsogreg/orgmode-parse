@@ -47,6 +47,7 @@ Library
                 , text                      >= 1.0      && < 2.0
                 , thyme                     >= 0.3      && < 0.4
                 , unordered-containers      >= 0.2      && < 0.3
+                , vector
 
 Test-Suite tests
   Type:                 exitcode-stdio-1.0
